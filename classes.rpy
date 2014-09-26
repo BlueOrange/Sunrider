@@ -133,10 +133,6 @@ init -2 python:
             self.result = None #store result of ui.interact()
 
         #here we start defining a few methods which part of the battlemanager
-        #return None if an attribute does not exist:
-        # def __getattr__(self,X):
-            # return None        
-
         ## insert entry to battle log
         # @param type The list of tags
         # @param message The formatted string
@@ -178,6 +174,28 @@ init -2 python:
             self.targetingmode = False
             if ship != None:
                 ship.movement_tiles = []
+        
+        def dispatch_handler(self,result,dispatch_type='battle'):
+            ui_action = None
+            #check handling of dispatcher
+            if result is None: return self.common_none
+            elif type(result) is bool: return self.common_bool
+            elif type(result) is list:
+                if dispatch_type == 'skirmish':
+                    ui_action = self.skirmish_dispatcher[result[0]]
+                elif dispatch_type == 'formation':
+                    ui_action = self.formation_dispatcher[result[0]]
+                elif dispatch_type == 'battle':
+                    ui_action = self.battle_dispatcher[result[0]]
+            else:
+                if dispatch_type == 'skirmish':
+                    ui_action = self.skirmish_dispatcher[result]
+                elif dispatch_type == 'formation':
+                    ui_action = self.formation_dispatcher[result]
+                elif dispatch_type == 'battle':
+                    ui_action = self.battle_dispatcher[result]
+            return ui_action
+        
         ########################################################
         ## Common dispatcher
         ########################################################
@@ -282,6 +300,7 @@ init -2 python:
             # this result can be from one of the imagebuttons in the pool screens or returned from
             # MouseTracker because a hex with a unit in it was clicked.
             selected_ship = self.result[1]
+            BM.selected = selected_ship
 
             if self.remove_mode:
                 if selected_ship.location != None:
@@ -337,25 +356,10 @@ init -2 python:
         ########################################################
         ## Skirmish dispatcher end
         ########################################################
-        def skirmish_phase(self):
-            while True:
-                ui_action = None
-                self.result = ui.interact()
-                if type(self.result is list):
-                    try:
-                        ui_action = self.skirmish_dispatcher[self.result[0]]
-                    except KeyError:
-                        renpy.say('ERROR', "Unexpected result={0} of ui.interact() in list evaluation".format(self.result[0]))
-                else:
-                    try:
-                        ui_action = self.skirmish_dispatcher[self.result]
-                    except KeyError:
-                        renpy.say('ERROR', "Unexpected result={0} of ui.interact() (no list)".format(self.result[0]))
-                if ui_action != None:
-                    ui_action()
+        def skirmish_phase(self):            
+            self.result = ui.interact()
+            self.dispatch_handler(self.result,'skirmish')()
 
-                if self.battlemode == False: #whenever this is set to False battle ends.
-                    break
         #------------------------------------------------------#
         ########################################################
         ## Formation dispatcher
@@ -419,26 +423,9 @@ init -2 python:
         ########################################################
         def formation_phase(self):
             while True:
-                ui_action = None
-                self.result = ui.interact()            
-                if type(self.result is list):
-                    try:
-                        ui_action = self.formation_dispatcher[self.result[0]]
-                    except KeyError:
-                        renpy.say('ERROR', "Unexpected result={0} of ui.interact() in list evaluation".format(self.result[0]))
-                else:
-                    try:
-                        ui_action = self.formation_dispatcher[self.result]
-                    except KeyError:
-                        renpy.say('ERROR', "Unexpected result={0} of ui.interact() (no list)".format(self.result[0]))
-                if ui_action != None:
-                    ui_action()
-                
+                self.result = ui.interact()
+                self.dispatch_handler(self.result,'formation')()
 
-
-
-                if self.battlemode == False: #whenever this is set to False battle ends.
-                    break
         #------------------------------------------------------#
         ########################################################
         ## Battle dispatcher
@@ -694,9 +681,13 @@ init -2 python:
                     message = "ORDER: ALL GUARD"
                     self.battle_log_insert(['order'], message)
                     store.show_message('all ships gained improved flak, shielding and evasion!')
-                    random_ship = player_ships[renpy.random.randint(0,len(player_ships)-1)]
-                    random_voice = renpy.random.randint(0,len(random_ship.buffed_voice)-1)
+                    
+                    
+                    random_ship = renpy.random.choice( get_player_ships_in_battle() )
+                    random_voice = renpy.random.choice(random_ship.buffed_voice)
                     renpy.music.play('sound/Voice/{}'.format(random_ship.buffed_voice[random_voice]),channel = random_ship.voice_channel)
+                    
+                    
                     for ship in player_ships:
                         ship.getting_buff = True
                     renpy.hide_screen('battle_screen')
@@ -842,8 +833,8 @@ init -2 python:
 
         def battle_order_vanguard_cannon(self):
             inrange = False
-            templist = enemy_ships[:]
-            for ship in templist:
+            #check to see if any enemy units are within a 7 hex radius.
+            for ship in enemy_ships:
                 if get_distance(sunrider.location,ship.location) <= 7:
                     inrange = True
             if inrange:
@@ -955,22 +946,9 @@ init -2 python:
                         enemy_ships.remove(ship)
                     if ship in self.ships:
                         self.ships.remove(ship)
-                        
-         
-            ui_action = None
-            if type(self.result is list):
-                try:
-                    ui_action = self.battle_dispatcher[self.result[0]]
-                except KeyError:
-                    renpy.say('ERROR', "Unexpected result={0} of ui.interact() in list evaluation".format(self.result[0]))
-            else:
-                try:
-                    ui_action = self.battle_dispatcher[self.result]
-                except KeyError:
-                    renpy.say('ERROR', "Unexpected result={0} of ui.interact() (no list)".format(self.result[0]))
-            if ui_action != None:
-                ui_action()
-                        
+
+            self.dispatch_handler(self.result)()            
+
             self.check_for_loss()
             self.check_for_win()
             return
@@ -1266,6 +1244,15 @@ init -2 python:
                         # if abs(ev.rel[0]) + abs(ev.rel[1]) > 5:
                         
                 mouse_location = get_mouse_location()
+                
+                #vanguard targeting
+                if BM.vanguardtarget:
+                    if BM.mouse_location != mouse_location and ev.buttons[0] != 1:
+                        if get_distance(sunrider.location,mouse_location) <=6:
+                            BM.mouse_location = mouse_location
+                            self.mouse_has_moved = True
+                            renpy.restart_interaction()
+                
                 
                 #check for hovering over movement tiles
                 if BM.selected != None:
@@ -2022,6 +2009,9 @@ init -2 python:
                     if self.name == 'Legion' and BM.enemy_vanguard_path == []:
                         result = get_vanguard_feasible(self)
                         if result != False:
+                            message = "WARNING: Legion aims vanguard at {0}".format(result.name)
+                            show_message(message)
+                            BM.battle_log_insert([], message)
                             BM.enemy_vanguard_path = interpolate_hex(self.location,result.location)
                     self.AI_running = False
                     return

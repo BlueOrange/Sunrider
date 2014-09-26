@@ -665,26 +665,20 @@ screen battle_screen:
 
          #selecting target for vanguard cannon
         if BM.vanguardtarget:   #creates buttons over enemy ships
-
-            if not BM.hovered == None:     #displayes red tiles on location affected by vanguard
-                $ hovered_ship = BM.hovered
-                if hovered_ship.location == None:
-                    $ pass
-                elif hovered_ship.faction != 'Player':
-                    $loc1 = sunrider.location
-                    $loc2 = hovered_ship.location
-                    if get_distance(loc1, loc2) <= 6:
-                        $tiles = interpolate_hex(loc1, loc2)
-                        for i in tiles:
-                            $xposition = dispx(i[0],i[1],zoomlevel)
-                            $yposition = dispy(i[0],i[1],zoomlevel)
-                            $xsize = int((HEXW + 4) * zoomlevel)
-                            $ysize = int((HEXH + 4) * zoomlevel)
-                            add "Battle UI/vanguard hex.png":
-                                xpos xposition
-                                ypos yposition
-                                size (xsize,ysize)
-                                alpha 0.7
+            $ loc1 = sunrider.location
+            $ loc2 = BM.mouse_location
+            if get_distance(loc1, loc2) <= 6:
+                $tiles = interpolate_hex(loc1, loc2)
+                for i in tiles:
+                    $xposition = dispx(i[0],i[1],zoomlevel)
+                    $yposition = dispy(i[0],i[1],zoomlevel)
+                    $xsize = int((HEXW + 4) * zoomlevel)
+                    $ysize = int((HEXH + 4) * zoomlevel)
+                    add "Battle UI/vanguard hex.png":
+                        xpos xposition
+                        ypos yposition
+                        size (xsize,ysize)
+                        alpha 0.7
 
         if BM.enemy_vanguard_path is not None:
             for hex in BM.enemy_vanguard_path:
@@ -739,36 +733,40 @@ screen battle_screen:
 
 
 ##not part of the viewport##
-    if config.developer and BM.phase != 'formation':
-        vbox:
-            ypos 100
-            xalign 1.0
-            textbutton "Battle Log" action Show('battle_log')
-            textbutton "Debug Cheats" xalign 1.0 action Return(['cheat'])
-            textbutton "Fast Quit" xalign 1.0 action Jump('quit')
-
-            if BM.debugoverlay:
-                textbutton "coord overlay" xalign 1.0 action SetField(BM,'debugoverlay',False)
-            else:
-                textbutton "coord overlay" xalign 1.0 action SetField(BM,'debugoverlay',True)
-            if BM.show_grid:
-                textbutton "new grid" xalign 1.0 action SetField(BM,'show_grid',False)
-            else:
-                textbutton "old grid" xalign 1.0 action SetField(BM,'show_grid',True)    
-
-
     if BM.phase != 'formation':
         vbox:
             xalign 1.0
-            if BM.edgescroll == (0,0):
-                textbutton "enable edgescroll" action SetField(BM,'edgescroll',(100,800*zoomlevel))
-            else:
-                textbutton "disable edgescroll" action SetField(BM,'edgescroll',(0,0))
-            if BM.show_tooltips:
-                textbutton "disable tooltips" xalign 1.0 action SetField(BM,'show_tooltips',False)
-            else:
-                textbutton "enable tooltips"  xalign 1.0 action SetField(BM,'show_tooltips',True)
-            textbutton "restart turn" xalign 1.0 action Jump('restartturn')
+            vbox:
+                xalign 1.0
+                textbutton "Battle Log" xalign 1.0 action Show('battle_log')
+                if BM.edgescroll == (0,0):
+                    textbutton "enable edgescroll" action SetField(BM,'edgescroll',(100,800*zoomlevel))
+                else:
+                    textbutton "disable edgescroll" action SetField(BM,'edgescroll',(0,0))
+                if BM.show_tooltips:
+                    textbutton "disable tooltips" xalign 1.0 action SetField(BM,'show_tooltips',False)
+                else:
+                    textbutton "enable tooltips"  xalign 1.0 action SetField(BM,'show_tooltips',True)
+                textbutton "restart turn" xalign 1.0 action Jump('restartturn')
+    
+            if config.developer:
+                vbox:
+                    # ypos 100
+                    xalign 1.0
+                    textbutton "Debug Cheats" xalign 1.0 action Return(['cheat'])
+                    textbutton "Fast Quit" xalign 1.0 action Jump('quit')
+
+                    if BM.debugoverlay:
+                        textbutton "coord overlay" xalign 1.0 action SetField(BM,'debugoverlay',False)
+                    else:
+                        textbutton "coord overlay" xalign 1.0 action SetField(BM,'debugoverlay',True)
+                    if BM.show_grid:
+                        textbutton "new grid" xalign 1.0 action SetField(BM,'show_grid',False)
+                    else:
+                        textbutton "old grid" xalign 1.0 action SetField(BM,'show_grid',True)    
+
+
+
 
     if BM.just_moved:
         textbutton 'cancel movement':
@@ -777,7 +775,7 @@ screen battle_screen:
             text_color 'fff'
             action Return(['cancel movement'])
 
-    if not BM.showing_orders and not BM.order_used and not BM.missile_moving and not BM.moving and BM.phase == "Player":
+    if not BM.showing_orders and not BM.order_used and not BM.missile_moving and not BM.moving and BM.phase == "Player" and sunrider.location != None:
         imagebutton:
             xpos 0
             ypos 0
