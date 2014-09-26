@@ -204,7 +204,15 @@ init -6 python:
         else:
             return False #None location is not free. failsafes.
             
-            
+    def get_player_ships_in_battle():
+        result = []
+        for ship in player_ships:
+            if ship.location != None:
+                result.append(ship)
+        return result
+    
+    
+    
     def set_cell_available(location, available=False):
         #False means available(empty/nil), True means occupied
         if location != None:
@@ -581,6 +589,7 @@ init -6 python:
         return count
     
     def clean_battle_exit():
+        BM.battle_log = []
         BM.battlemode = False #this ends the battle loop
         if BM.selected != None: BM.unselect_ship(BM.selected)
         BM.targetingmode = False
@@ -730,7 +739,9 @@ init -6 python:
             strat,duration = BM.active_strategy
             if strat != None:
                 if duration <= 1:
-                    show_message( '{} has expired!'.format(strat) )
+                    message = "{} has expired!".format(strat)
+                    BM.battle_log_insert(['order'], message)
+                    show_message(message)
                     order_expired = True
                     BM.active_strategy = [None,0]
                 else:
@@ -743,10 +754,14 @@ init -6 python:
                     if mod_power != 0:
                         if duration == 1:
                             if mod_power < 0:
-                                show_message('the ' +ship.name+ ' recovered from its curse to its ' +key+ '!')
+                                message = "{0} recovered from curse to its {1}".format(ship.name, key.replace('_', ' '))
+                                BM.battle_log_insert(['support', 'debuff'], message)
+                                show_message(message)
                             else:
                                 if not order_expired:
-                                    show_message('the ' +ship.name+ ' lost its buff to its ' +key+ '!')
+                                    message = "{0} lost buff to its {1}".format(ship.name, key.replace('_', ' '))
+                                    BM.battle_log_insert(['support', 'buff'], message)
+                                    show_message(message)
                             ship.modifiers[key] = [0,0]
                             renpy.pause(0.5)
                         else:
@@ -756,10 +771,14 @@ init -6 python:
                 for key in ship.modifiers:
                     if ship.modifiers[key][1] > 0:
                         if ship.modifiers[key][1] == 1:
-                            if ship.modifiers[key][0] < 0:                            
-                                show_message('the ' +ship.name+ ' recovered from its curse to its ' +key+ '!')
+                            if ship.modifiers[key][0] < 0:
+                                message = "{0} recovered from curse to its {1}".format(ship.name, key.replace('_', ' '))
+                                BM.battle_log_insert(['support', 'debuff'], message)
+                                show_message(message)
                             else:
-                                show_message('the ' +ship.name+ ' lost its buff to its ' +key+ '!')
+                                message = "{0} recovered from curse to its {1}".format(ship.name, key.replace('_', ' '))
+                                BM.battle_log_insert(['support', 'debuff'], message)
+                                show_message(message)
                             ship.modifiers[key] = [0,0]
                             renpy.pause(0.5)
                         else:
@@ -803,7 +822,7 @@ init -6 python:
         z = location[2]
         q = x
         r = z + (x + (x%2)) / 2
-        return [r, q]
+        return (r, q)
 
     def cubic_distance(location1, location2):  #calculates the distances between two cubic coordiantes
         x1 = location1[0]
@@ -848,7 +867,7 @@ init -6 python:
 
         if disN != 0:
             N = (1.0)/disN
-            for i in range(0, 6 + 1):
+            for i in range(0, disN+1):
                 x = cube1[0] + (cube2[0] - cube1[0])*i*N
                 y = cube1[1] + (cube2[1] - cube1[1])*i*N
                 z = cube1[2] + (cube2[2] - cube1[2])*i*N
